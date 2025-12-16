@@ -8,7 +8,7 @@ pipeline {
         // Name of the image we are building
         IMAGE_NAME = 'devops-final-project'
         
-        // The secret ID we created in Jenkins
+        // The secret ID we created in Jenkins for Docker Hub
         DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials')
     }
 
@@ -46,6 +46,26 @@ pipeline {
                 }
             }
         }
+
+        // --- NEW DEPLOYMENT STAGE START ---
+        stage('Deploy to Kubernetes') {
+            steps {
+                // This uses the SSH credentials (vm-ssh-key) to log into the Host VM
+                sshagent(['vm-ssh-key']) {
+                    script {
+                        echo 'Deploying to GKE Cluster...'
+                        
+                        // 1. SSH into the Host VM (172.17.0.1 is the default Docker Host IP)
+                        // 2. Run kubectl set image to update the running container with the new version
+                        sh "ssh -o StrictHostKeyChecking=no raonadir12345@172.17.0.1 'kubectl set image deployment/devops-app-deployment devops-app-container=$DOCKERHUB_USERNAME/$IMAGE_NAME:$BUILD_NUMBER'"
+                        
+                        // 3. Optional: Wait for the rollout to finish so we know if it succeeded
+                        sh "ssh -o StrictHostKeyChecking=no raonadir12345@172.17.0.1 'kubectl rollout status deployment/devops-app-deployment'"
+                    }
+                }
+            }
+        }
+        // --- NEW DEPLOYMENT STAGE END ---
         
         stage('Cleanup') {
             steps {
