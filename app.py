@@ -10,7 +10,7 @@ def hello():
     
     return f"""
     <html>
-    <body style="background-color:#003366; color:white; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;">
+    <body style="background-color:#cc0000; color:white; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;">
         <div style="text-align:center; padding:40px; border:2px solid #00ff00; border-radius:10px; box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);">
             <h1 style="color:#00ff00; font-size:3em; margin-bottom:10px;">🚀 OPTI-AI DEVOPS</h1>
             <h2 style="border-bottom: 1px solid #555; padding-bottom:20px;">SYSTEM OPERATIONAL</h2>
