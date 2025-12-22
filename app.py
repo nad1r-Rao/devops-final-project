@@ -1,26 +1,37 @@
 from flask import Flask, request, redirect, url_for, render_template_string
-from prometheus_flask_exporter import PrometheusMetrics # <--- NEW IMPORT
+from prometheus_flask_exporter import PrometheusMetrics
 import socket
 import redis
 import os
 
 app = Flask(__name__)
 
-# INSTRUMENTATION: Automatically metrics for every page load
-metrics = PrometheusMetrics(app) # <--- THIS ENABLED GRAFANA TALKING
+# --- FIX: Explicitly set the path to /metrics ---
+# This forces the library to create the endpoint correctly
+metrics = PrometheusMetrics(app, path='/metrics')
+# -------------------------------------------------
 
 # CONNECT TO REDIS MICROSERVICE
-db = redis.Redis(host='redis-service', port=6379, decode_responses=True)
+# We use a simple try/except block so the app doesn't crash if Redis is slow to start
+try:
+    db = redis.Redis(host='redis-service', port=6379, decode_responses=True)
+except:
+    db = None
 
 @app.route('/')
 def index():
     pod_id = socket.gethostname()
-    try:
-        tasks = db.lrange('todo_tasks', 0, -1)
-        db_status = "ONLINE 🟢"
-    except redis.exceptions.ConnectionError:
-        tasks = []
-        db_status = "OFFLINE 🔴"
+    
+    # Database Connection Logic
+    tasks = []
+    db_status = "OFFLINE 🔴"
+    
+    if db:
+        try:
+            tasks = db.lrange('todo_tasks', 0, -1)
+            db_status = "ONLINE 🟢"
+        except:
+            db_status = "OFFLINE 🔴 (Connection Error)"
 
     html = """
     <!DOCTYPE html>
@@ -80,14 +91,22 @@ def index():
 @app.route('/add', methods=['POST'])
 def add():
     task = request.form.get('task')
-    if task:
-        db.lpush('todo_tasks', task)
+    if task and db:
+        try:
+            db.lpush('todo_tasks', task)
+        except:
+            pass
     return redirect(url_for('index'))
 
 @app.route('/delete/<task>')
 def delete(task):
-    db.lrem('todo_tasks', 0, task)
+    if db:
+        try:
+            db.lrem('todo_tasks', 0, task)
+        except:
+            pass
     return redirect(url_for('index'))
 
 if __name__ == "__main__":
+    # Ensure it listens on 0.0.0.0 so external pods can reach it
     app.run(host='0.0.0.0', port=5000)
