@@ -1,28 +1,27 @@
 from flask import Flask, request, redirect, url_for, render_template_string
+from prometheus_flask_exporter import PrometheusMetrics # <--- NEW IMPORT
 import socket
 import redis
 import os
 
 app = Flask(__name__)
 
+# INSTRUMENTATION: Automatically metrics for every page load
+metrics = PrometheusMetrics(app) # <--- THIS ENABLED GRAFANA TALKING
+
 # CONNECT TO REDIS MICROSERVICE
-# We connect to the Service Name 'redis-service' defined in Kubernetes
 db = redis.Redis(host='redis-service', port=6379, decode_responses=True)
 
 @app.route('/')
 def index():
-    # Get Pod Hostname to prove Load Balancing
     pod_id = socket.gethostname()
-    
-    # FETCH TASKS FROM REDIS DATABASE
     try:
         tasks = db.lrange('todo_tasks', 0, -1)
         db_status = "ONLINE 🟢"
     except redis.exceptions.ConnectionError:
         tasks = []
-        db_status = "OFFLINE 🔴 (Check Redis Pod)"
+        db_status = "OFFLINE 🔴"
 
-    # HTML UI - Professional Dark Theme
     html = """
     <!DOCTYPE html>
     <html>
@@ -82,13 +81,11 @@ def index():
 def add():
     task = request.form.get('task')
     if task:
-        # PUSH DATA TO REDIS SERVICE
         db.lpush('todo_tasks', task)
     return redirect(url_for('index'))
 
 @app.route('/delete/<task>')
 def delete(task):
-    # REMOVE DATA FROM REDIS SERVICE
     db.lrem('todo_tasks', 0, task)
     return redirect(url_for('index'))
 
